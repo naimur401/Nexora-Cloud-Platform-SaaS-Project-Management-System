@@ -2,22 +2,18 @@
 
 const axiosInstance = axios.create({
   baseURL: 'http://localhost:5000/api',
-  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
   withCredentials: true,
 });
 
-// Add token to every request
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = Bearer ;
+      config.headers.Authorization = 'Bearer ' + token;
     }
-    console.log('Axios request:', config.method, config.url);
     return config;
   },
   (error) => {
@@ -25,10 +21,8 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Log responses
 axiosInstance.interceptors.response.use(
   (response) => {
-    console.log('Axios response:', response.status, response.config.url);
     return response;
   },
   (error) => {

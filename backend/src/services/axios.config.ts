@@ -8,7 +8,7 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor
+// Request interceptor - add token to every request
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,32 +22,13 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - handle errors
 axiosInstance.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error) => {
-    const originalRequest = error.config;
-    
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        const response = await axios.post('http://localhost:5000/api/auth/refresh-token', {}, {
-          withCredentials: true
-        });
-        const { token } = response.data.data;
-        localStorage.setItem('token', token);
-        originalRequest.headers.Authorization = Bearer ;
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-    
+  (error) => {
+    console.error('Axios error:', error.response?.status, error.response?.data);
     return Promise.reject(error);
   }
 );
