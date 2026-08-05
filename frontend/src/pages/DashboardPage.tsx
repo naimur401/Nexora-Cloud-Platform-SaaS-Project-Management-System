@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from "react";
+﻿import NotificationBell from "../components/NotificationBell";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { authService } from "../services/auth.service";
 import CreateTaskModal from "../components/CreateTaskModal";
@@ -19,6 +20,9 @@ export default function DashboardPage() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
   useEffect(() => {
     setUser(authService.getCurrentUser());
@@ -33,12 +37,17 @@ export default function DashboardPage() {
       ]);
       setProjects(projectsRes.data.data || []);
       setTasks(tasksRes.data.data || []);
-    } catch (error) {
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Failed to load data"); }
+    finally { setLoading(false); }
   };
+
+  const filteredTasks = tasks.filter((task) => {
+    const matchSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchPriority = filterPriority ? task.priority === filterPriority : true;
+    const matchStatus = filterStatus ? task.status === filterStatus : true;
+    return matchSearch && matchPriority && matchStatus;
+  });
 
   const fetchComments = async (taskId: number) => {
     try {
@@ -104,7 +113,7 @@ export default function DashboardPage() {
       const res = await axios.put("/tasks/" + taskId + "/status", { status: newStatus });
       if (res.data.success) {
         setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-        toast.success("Task moved to " + newStatus);
+        toast.success("Task updated");
       }
     } catch { toast.error("Failed to update task"); }
   };
@@ -134,9 +143,9 @@ export default function DashboardPage() {
   };
 
   const columns = [
-    { id: "TODO", title: "To Do", color: "bg-yellow-50", borderColor: "border-yellow-400", bgColor: "bg-yellow-100" },
-    { id: "IN_PROGRESS", title: "In Progress", color: "bg-blue-50", borderColor: "border-blue-400", bgColor: "bg-blue-100" },
-    { id: "DONE", title: "Done", color: "bg-green-50", borderColor: "border-green-400", bgColor: "bg-green-100" },
+    { id: "TODO", title: "To Do", borderColor: "border-yellow-400", bgColor: "bg-yellow-100" },
+    { id: "IN_PROGRESS", title: "In Progress", borderColor: "border-blue-400", bgColor: "bg-blue-100" },
+    { id: "DONE", title: "Done", borderColor: "border-green-400", bgColor: "bg-green-100" },
   ];
 
   if (loading) return (
@@ -150,20 +159,19 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link to="/" className="text-2xl font-bold text-purple-600">Nexora Cloud</Link>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-gray-700">Welcome, <span className="font-semibold">{user?.name}</span></span>
             <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded">{user?.role}</span>
-            <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Logout</button>
+            <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Logout</button>
           </div>
         </div>
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           {[
             { icon: "📁", value: projects.length, label: "Total Projects", color: "text-purple-600" },
@@ -179,7 +187,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b flex">
             {[{ id: "projects", label: "📁 Projects" }, { id: "kanban", label: "🎯 Kanban Board" }].map((tab) => (
@@ -191,7 +198,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Projects Tab */}
         {activeTab === "projects" && (
           <>
             <div className="bg-white rounded-lg shadow mb-8">
@@ -221,10 +227,37 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-bold">✅ Tasks</h2>
                 <button onClick={() => setShowTaskModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">+ New Task</button>
               </div>
+              <div className="p-4 border-b bg-gray-50 flex gap-3 flex-wrap">
+                <input type="text" placeholder="🔍 Search tasks..." value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 min-w-48 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+                  <option value="">All Priority</option>
+                  <option value="HIGH">🔴 High</option>
+                  <option value="MEDIUM">🟡 Medium</option>
+                  <option value="LOW">🟢 Low</option>
+                </select>
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm">
+                  <option value="">All Status</option>
+                  <option value="TODO">📝 TODO</option>
+                  <option value="IN_PROGRESS">🔄 In Progress</option>
+                  <option value="DONE">✅ Done</option>
+                </select>
+                {(searchQuery || filterPriority || filterStatus) && (
+                  <button onClick={() => { setSearchQuery(""); setFilterPriority(""); setFilterStatus(""); }}
+                    className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
               <div className="p-6">
-                {tasks.length === 0 ? <p className="text-gray-500 text-center">No tasks yet.</p> : (
+                {filteredTasks.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">
+                    {tasks.length === 0 ? "No tasks yet." : "No tasks match your search."}
+                  </p>
+                ) : (
                   <div className="grid gap-4">
-                    {tasks.map((task) => (
+                    {filteredTasks.map((task) => (
                       <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
@@ -255,13 +288,12 @@ export default function DashboardPage() {
           </>
         )}
 
-        {/* Kanban Tab */}
         {activeTab === "kanban" && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="mb-6 flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">🎯 Task Board</h2>
-                <p className="text-gray-600 text-sm">Click a task to view comments. Drag to change status.</p>
+                <p className="text-gray-600 text-sm">Drag to change status. Click 💬 for comments.</p>
               </div>
               <button onClick={() => setShowTaskModal(true)} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">+ New Task</button>
             </div>
@@ -283,8 +315,8 @@ export default function DashboardPage() {
                           <span className={"text-xs px-2 py-1 rounded " + getPriorityBadge(task.priority)}>{task.priority}</span>
                         </div>
                         <p className="text-xs text-gray-500 mb-3">{task.description}</p>
-                        <button onClick={() => openTaskComments(task)} className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
-                          💬 View Comments
+                        <button onClick={() => openTaskComments(task)} className="text-xs text-purple-600 hover:text-purple-800">
+                          💬 Comments
                         </button>
                       </div>
                     ))}
@@ -299,7 +331,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Project Modal */}
       {showProjectModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
@@ -318,7 +349,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Comments Modal */}
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
@@ -331,13 +361,12 @@ export default function DashboardPage() {
                   <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{selectedTask.status}</span>
                 </div>
               </div>
-              <button onClick={() => { setSelectedTask(null); setComments([]); }} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              <button onClick={() => { setSelectedTask(null); setComments([]); }} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-6">
               <h4 className="font-semibold text-gray-700 mb-4">💬 Comments ({comments.length})</h4>
               {comments.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">No comments yet. Be the first to comment!</p>
+                <p className="text-gray-400 text-center py-8">No comments yet.</p>
               ) : (
                 <div className="space-y-4">
                   {comments.map((comment) => (
@@ -347,7 +376,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1 bg-gray-50 rounded-lg p-3">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold text-sm text-gray-800">{comment.user_name || "Unknown"}</span>
+                          <span className="font-semibold text-sm">{comment.user_name || "Unknown"}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
                             <button onClick={() => deleteComment(comment.id)} className="text-red-400 hover:text-red-600 text-xs">Delete</button>
@@ -360,7 +389,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-
             <div className="p-6 border-t">
               <div className="flex gap-3">
                 <input type="text" placeholder="Write a comment..." value={newComment}
@@ -381,3 +409,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

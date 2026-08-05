@@ -83,6 +83,7 @@ app.post("/api/auth/login", async (req, res) => {
     res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: false, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     const { password: _, ...userData } = user;
+    await pool.query("INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)", [user.id, "USER_LOGIN", JSON.stringify({ email: user.email, role: user.role })]);
     res.json({ success: true, data: { user: userData, accessToken, token: accessToken } });
   } catch (error) {
     console.error("Login error:", error);
@@ -183,7 +184,14 @@ app.post("/api/tasks", authenticate, async (req: AuthRequest, res) => {
       "INSERT INTO tasks (title, description, priority, project_id, assigned_to) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [title, description, priority || "MEDIUM", projectId, assignedTo || null]
     );
-    res.json({ success: true, data: result.rows[0] });
+    const task = result.rows[0];
+    if (assignedTo) {
+      await pool.query(
+        "INSERT INTO notifications (user_id, message, type) VALUES ($1, $2, $3)",
+        [assignedTo, "You have been assigned a new task: " + title, "TASK_ASSIGNED"]
+      );
+    }
+    res.json({ success: true, data: task });
   } catch { res.status(500).json({ success: false, message: "Failed to create task" }); }
 });
 
@@ -234,6 +242,7 @@ app.get("/api/admin/companies", adminOnly, async (req, res) => {
 app.post("/api/admin/companies", adminOnly, async (req, res) => {
   try {
     const result = await pool.query("INSERT INTO companies (name) VALUES ($1) RETURNING *", [req.body.name]);
+    await pool.query("INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)", [(req as any).user?.id, "COMPANY_CREATED", JSON.stringify({ name: req.body.name })]);
     res.json({ success: true, data: result.rows[0] });
   } catch { res.status(500).json({ success: false, message: "Failed to create company" }); }
 });
@@ -262,6 +271,7 @@ app.put("/api/admin/users/:id/role", adminOnly, async (req, res) => {
 app.delete("/api/admin/users/:id", adminOnly, async (req, res) => {
   try {
     await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
+    await pool.query("INSERT INTO audit_logs (user_id, action, details) VALUES ($1, $2, $3)", [(req as any).user?.id, "USER_DELETED", JSON.stringify({ deletedUserId: req.params.id })]);
     res.json({ success: true, message: "User deleted" });
   } catch { res.status(500).json({ success: false, message: "Failed to delete user" }); }
 });
@@ -318,5 +328,47 @@ app.delete("/api/tasks/:taskId/comments/:commentId", authenticate, async (req: A
     res.json({ success: true, message: "Comment deleted" });
   } catch { res.status(500).json({ success: false, message: "Failed to delete comment" }); }
 });
+
+
+// ============ USERS LIST (for task assignment) ============
+app.get("/api/users", authenticate, async (req: AuthRequest, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, role FROM users WHERE role != $1 ORDER BY name ASC",
+      ["SUPER_ADMIN"]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch { res.status(500).json({ success: false, message: "Failed to fetch users" }); }
+});
+// ============ NOTIFICATIONS ============
+app.get("/api/notifications", authenticate, async (req: AuthRequest, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20",
+      [req.user?.id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch { res.status(500).json({ success: false, message: "Failed to fetch notifications" }); }
+});
+
+app.put("/api/notifications/:id/read", authenticate, async (req: AuthRequest, res) => {
+  try {
+    await pool.query("UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2", [req.params.id, req.user?.id]);
+    res.json({ success: true, message: "Marked as read" });
+  } catch { res.status(500).json({ success: false, message: "Failed to update notification" }); }
+});
+
+app.put("/api/notifications/read-all", authenticate, async (req: AuthRequest, res) => {
+  try {
+    await pool.query("UPDATE notifications SET is_read = true WHERE user_id = $1", [req.user?.id]);
+    res.json({ success: true, message: "All marked as read" });
+  } catch { res.status(500).json({ success: false, message: "Failed to update notifications" }); }
+});
 app.listen(PORT, () => console.log("Server running on http://localhost:" + PORT));
+
+
+
+
+
+
 
