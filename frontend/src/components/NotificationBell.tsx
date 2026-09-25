@@ -82,8 +82,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => (
-                <div key={n.id}
-                  onClick={() => !n.is_read && markAsRead(n.id)}
+                <div key={n.id} onClick={() => !n.is_read && markAsRead(n.id)}
                   className={"p-4 border-b cursor-pointer hover:bg-gray-50 transition " + (!n.is_read ? "bg-purple-50" : "")}>
                   <div className="flex gap-3 items-start">
                     <span className="text-lg">{n.type === "TASK_ASSIGNED" ? "📋" : "🔔"}</span>

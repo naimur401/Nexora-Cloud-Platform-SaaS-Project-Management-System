@@ -19,13 +19,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     navigate('/login');
   };
 
-  const menuItems = [
-    { path: '/admin', label: 'Dashboard', icon: '📊' },
-    { path: '/admin/companies', label: 'Companies', icon: '🏢' },
-    { path: '/admin/users', label: 'Users', icon: '👥' },
-    { path: '/admin/logs', label: 'Audit Logs', icon: '📋' },
-  ];
-
+ const menuItems = [
+  { path: '/admin', label: 'Dashboard', icon: '📊' },
+  { path: '/admin/companies', label: 'Companies', icon: '🏢' },
+  { path: '/admin/users', label: 'Users', icon: '👥' },
+  { path: '/admin/subscriptions', label: 'Subscriptions', icon: '💳' },
+  { path: '/admin/logs', label: 'Audit Logs', icon: '📋' },
+];
   const getLinkClass = (path: string) => {
     const baseClass = 'flex items-center gap-3 px-4 py-3 rounded-lg transition';
     if (location.pathname === path) {

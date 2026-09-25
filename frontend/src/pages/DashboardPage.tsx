@@ -23,6 +23,8 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     setUser(authService.getCurrentUser());
@@ -56,9 +58,17 @@ export default function DashboardPage() {
     } catch { toast.error("Failed to load comments"); }
   };
 
+  const fetchAttachments = async (taskId: number) => {
+    try {
+      const res = await axios.get("/tasks/" + taskId + "/attachments");
+      setAttachments(res.data.data || []);
+    } catch {}
+  };
+
   const openTaskComments = (task: any) => {
     setSelectedTask(task);
     fetchComments(task.id);
+    fetchAttachments(task.id);
   };
 
   const addComment = async () => {
@@ -75,10 +85,43 @@ export default function DashboardPage() {
 
   const deleteComment = async (commentId: number) => {
     try {
-      await axios.delete("/tasks/" + selectedTask.id + "/comments/" + commentId);
+      await axios.delete("/comments/" + commentId);
       setComments(comments.filter(c => c.id !== commentId));
       toast.success("Comment deleted");
     } catch { toast.error("Failed to delete comment"); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post('/tasks/' + selectedTask.id + '/attachments', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setAttachments([res.data.data, ...attachments]);
+      toast.success('File uploaded');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const deleteAttachment = async (id: number) => {
+    if (!confirm('Delete this file?')) return;
+    try {
+      await axios.delete('/attachments/' + id);
+      setAttachments(attachments.filter(a => a.id !== id));
+      toast.success('File deleted');
+    } catch {
+      toast.error('Failed to delete');
+    }
   };
 
   const handleLogout = async () => {
@@ -148,6 +191,8 @@ export default function DashboardPage() {
     { id: "DONE", title: "Done", borderColor: "border-green-400", bgColor: "bg-green-100" },
   ];
 
+  const canManageTeam = user?.role === 'COMPANY_ADMIN' || user?.role === 'SUPER_ADMIN';
+
   if (loading) return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="text-center">
@@ -166,6 +211,10 @@ export default function DashboardPage() {
             <NotificationBell />
             <span className="text-gray-700">Welcome, <span className="font-semibold">{user?.name}</span></span>
             <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded">{user?.role}</span>
+            {canManageTeam && (
+              <Link to="/team" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">👥 Team</Link>
+            )}
+            <Link to="/settings" className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">⚙️ Settings</Link>
             <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Logout</button>
           </div>
         </div>
@@ -351,7 +400,7 @@ export default function DashboardPage() {
 
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+          <div className="bg-white rounded-lg w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
             <div className="p-6 border-b flex justify-between items-start">
               <div>
                 <h3 className="text-xl font-bold">{selectedTask.title}</h3>
@@ -361,8 +410,50 @@ export default function DashboardPage() {
                   <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{selectedTask.status}</span>
                 </div>
               </div>
-              <button onClick={() => { setSelectedTask(null); setComments([]); }} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              <button onClick={() => { setSelectedTask(null); setComments([]); setAttachments([]); }} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
+
+            <div className="p-6 border-b bg-gray-50">
+              <h4 className="font-semibold text-gray-700 mb-3">📎 Attachments ({attachments.length})</h4>
+              <input
+                type="file"
+                id={'file-input-' + selectedTask.id}
+                className="hidden"
+                onChange={handleFileUpload}
+                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+              />
+              <label
+                htmlFor={'file-input-' + selectedTask.id}
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer text-sm"
+              >
+                + Upload File
+              </label>
+              {uploading && <span className="ml-3 text-sm text-gray-500">Uploading...</span>}
+
+              <div className="mt-3 space-y-2 max-h-40 overflow-y-auto">
+                {attachments.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No attachments yet.</p>
+                ) : (
+                  attachments.map((file) => (
+                    <div key={file.id} className="flex items-center gap-3 bg-white p-2 rounded border">
+                      <span className="text-lg">
+                        {file.file_type?.includes('image') ? '🖼️' : file.file_type?.includes('pdf') ? '📄' : '📎'}
+                      </span>
+                      <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm text-purple-600 hover:underline truncate">
+                        {file.file_name}
+                      </a>
+                      <span className="text-xs text-gray-400">
+                        {file.file_size ? (file.file_size / 1024).toFixed(1) + ' KB' : ''}
+                      </span>
+                      <button onClick={() => deleteAttachment(file.id)} className="text-red-400 hover:text-red-600 text-xs">
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-6">
               <h4 className="font-semibold text-gray-700 mb-4">💬 Comments ({comments.length})</h4>
               {comments.length === 0 ? (
@@ -389,6 +480,7 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
             <div className="p-6 border-t">
               <div className="flex gap-3">
                 <input type="text" placeholder="Write a comment..." value={newComment}
@@ -409,4 +501,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
