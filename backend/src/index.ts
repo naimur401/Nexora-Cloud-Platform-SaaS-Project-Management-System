@@ -17,10 +17,29 @@ const PORT = 5000;
 const JWT_SECRET = 'nexora_super_secret_key';
 
 app.use(helmet());
+
+// ✅ UPDATED CORS - Vercel URLs allow
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:5175',
+    ];
+    
+    // Allow requests with no origin (mobile apps, Postman)
+    if (!origin) return callback(null, true);
+    
+    // Allow localhost and any Vercel URL
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
+
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser());
