@@ -1,16 +1,23 @@
-﻿FROM node:20-alpine
+﻿FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
+COPY tsconfig*.json ./
+COPY vite.config.* ./
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+COPY index.html ./
+
 RUN npm install
 
-COPY . .
+COPY src ./src
 
 RUN npm run build
 
 FROM nginx:alpine
-COPY --from=0 /app/dist /usr/share/nginx/html
+
+COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

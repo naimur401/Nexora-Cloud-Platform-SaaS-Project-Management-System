@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 export default function TeamPage() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
+  const [, setUser] = useState<any>(null);
   const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);

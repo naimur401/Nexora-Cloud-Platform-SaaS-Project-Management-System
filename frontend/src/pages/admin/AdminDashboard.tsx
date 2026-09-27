@@ -143,9 +143,9 @@ export default function AdminDashboard() {
                 dataKey="value"
                 label={({ name, value }) => name + ': ' + value}
               >
-                {taskStatusData.map((entry, index) => (
-                  <Cell key={'cell-' + index} fill={COLORS[index % COLORS.length]} />
-                ))}
+                {taskStatusData.map((_, index) => (
+  <Cell key={'cell-' + index} fill={COLORS[index % COLORS.length]} />
+))}
               </Pie>
               <Tooltip />
             </PieChart>

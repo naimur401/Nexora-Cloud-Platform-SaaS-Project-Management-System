@@ -1,15 +1,17 @@
 ﻿import { Pool } from 'pg';
+import 'dotenv/config';
 
 const pool = new Pool({
-  user: 'postgres',
-  password: 'postgres',
-  host: 'localhost',
-  port: 5432,
-  database: 'nexora_db',
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 pool.on('connect', () => {
   console.log('✅ PostgreSQL connected successfully');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ PostgreSQL connection error:', err);
 });
 
 export default pool;

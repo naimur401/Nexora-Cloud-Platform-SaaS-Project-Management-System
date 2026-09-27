@@ -1,14 +1,25 @@
-﻿FROM node:20-alpine
+﻿FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
+COPY tsconfig.json ./
+
 RUN npm install
 
-COPY . .
+COPY src ./src
 
-RUN npm run build 2>/dev/null || true
+RUN npm run build
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --only=production
+
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["npx", "ts-node", "src/index.ts"]
+CMD ["node", "dist/index.js"]

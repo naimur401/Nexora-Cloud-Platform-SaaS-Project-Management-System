@@ -1,0 +1,7 @@
+=== SUPABASE CONNECTION STRING ===
+
+DATABASE_URL=postgresql://postgres.ieksbvlxicgsxdjkxqqt:farhangub401@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+
+Password: farhangub401
+Project ID: ieksbvlxicgsxdjkxqqt
+Region: ap-southeast-1 (Singapore)
